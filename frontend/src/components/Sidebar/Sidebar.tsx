@@ -15,7 +15,7 @@ export default function Sidebar() {
       dispatch(callReset())
       dispatch(transcriptCleared())
     }
-    navigate('/call')
+    navigate('/') // always ask: define a new role or reuse the last one
   }
 
   return (

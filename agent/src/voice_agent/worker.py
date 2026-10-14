@@ -78,6 +78,7 @@ async def entrypoint(ctx: JobContext) -> None:
         reason_s = str(getattr(reason, "value", reason) or "closed")
         state.end_reason = state.end_reason or reason_s
         closed.set()
+        ctx.delete_room()  # disconnect the caller too, so both sides end together
         ctx.shutdown(reason=reason_s)  # run the shutdown hooks (summary) now, not when the room times out
 
     @session.on("error")

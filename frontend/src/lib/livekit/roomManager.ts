@@ -1,6 +1,7 @@
 /** Owns the LiveKit Room and audio analysers. Deliberately outside Redux (non-serializable). */
 import {
   ConnectionState,
+  DisconnectReason,
   ParticipantKind,
   Room,
   RoomEvent,
@@ -31,6 +32,13 @@ export interface Callbacks {
   onError(message: string): void
   onDisconnected(): void
 }
+
+/** A server-side end (agent closed the room) is a normal hang-up, not a connection error. */
+export function isNormalDisconnect(reason?: DisconnectReason): boolean {
+  return reason === DisconnectReason.ROOM_DELETED || reason === DisconnectReason.CLIENT_INITIATED
+}
+
+export const AGENT_LEFT_GRACE_MS = 1500
 
 export function classifySpeaker(
   trackId: string | undefined,
@@ -93,9 +101,17 @@ export class CallRoomManager {
     room.on(RoomEvent.MediaDevicesError, () =>
       cb.onError('Microphone problem. Check permissions and devices.'),
     )
-    room.on(RoomEvent.Disconnected, () => {
+    room.on(RoomEvent.ParticipantDisconnected, (p) => {
+      // The agent hung up. The server normally closes the room too; this is the fallback so the
+      // browser never stays "connected" to an empty call.
+      if (p.kind !== ParticipantKind.AGENT) return
+      setTimeout(() => {
+        if (this.room === room && !this.hasAgent()) void this.disconnect().then(cb.onDisconnected)
+      }, AGENT_LEFT_GRACE_MS)
+    })
+    room.on(RoomEvent.Disconnected, (reason) => {
       this.cleanup()
-      if (!this.intentionalClose) cb.onError('The connection was lost.')
+      if (!this.intentionalClose && !isNormalDisconnect(reason)) cb.onError('The connection was lost.')
       cb.onDisconnected()
     })
 

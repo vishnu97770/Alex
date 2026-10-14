@@ -143,15 +143,6 @@ textarea {
   font: inherit;
   resize: vertical;
 }
-.call {
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 100vh;
-}
 .sphere {
   height: 240px;
   flex: none;
@@ -261,10 +252,6 @@ textarea {
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
-  .call {
-    height: auto;
-    min-height: 70vh;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -293,5 +280,47 @@ textarea {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Call layout: chat centred in the free space, summary as a right-hand column once it exists. */
+.call-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100vh;
+}
+.call-layout.with-summary {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+}
+.call-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 0;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.call-title {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-weight: 500;
+  font-size: 1.4rem;
+}
+.summary-panel {
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 16px;
+  overflow: auto;
+}
+@media (max-width: 900px) {
+  .call-layout.with-summary {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .summary-panel {
+    border-left: 0;
+    border-top: 1px solid var(--border);
   }
 }
