@@ -33,22 +33,33 @@ class GeminiSummarizer:
     def __init__(self, s: AgentSettings):
         from google import genai
 
+        from voice_agent.providers.llm import model_chain
+
         self.model = s.gemini_text_model
+        self.models = model_chain(s.gemini_text_model, s.gemini_fallback_models)
         self._client = genai.Client(api_key=s.gemini_api_key)
 
     async def generate(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
         from google.genai import types
 
-        resp = await self._client.aio.models.generate_content(
-            model=self.model,
-            contents=user,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                temperature=0.1,
-                response_mime_type="application/json",
-                response_json_schema=schema,
-            ),
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=0.1,
+            response_mime_type="application/json",
+            response_json_schema=schema,
         )
+        last: Exception | None = None
+        for model in self.models:  # fail over on overload
+            try:
+                resp = await self._client.aio.models.generate_content(model=model, contents=user, config=config)
+                self.model = model
+                break
+            except Exception as e:
+                last = e
+                log.warning("summary model failed", extra={"model": model, "status": getattr(e, "code", None)})
+        else:
+            assert last is not None
+            raise last
         out: dict[str, Any] = json.loads(resp.text or "")
         return out
 

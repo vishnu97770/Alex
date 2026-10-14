@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_text_model: str = "gemini-3.5-flash-lite"
+    gemini_fallback_models: str = "gemini-3.8-flash,gemini-3.5-flash"
+    gemini_timeout_seconds: float = 20.0
 
     transcript_retention_days: int = 90
     rate_limit_public: str = "30/minute"

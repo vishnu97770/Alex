@@ -66,3 +66,22 @@ it('shows an error with retry when generation fails', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent(/unavailable/i)
   expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
 })
+
+it('shows progress while generating and lets the user cancel', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((req: Request) => {
+      if (!req.url.includes('generate')) return Promise.resolve(json({}, 404))
+      return new Promise((_res, rej) =>
+        req.signal.addEventListener('abort', () => rej(new DOMException('Aborted', 'AbortError'))),
+      )
+    }),
+  )
+  renderPage()
+  await userEvent.type(screen.getByLabelText(/agent role/i), 'A friendly dental receptionist')
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  expect(await screen.findByRole('status')).toHaveTextContent(/Reading your description/)
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  await vi.waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})

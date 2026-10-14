@@ -88,3 +88,32 @@ def test_missing_gemini_key_is_a_clear_503_not_a_500(monkeypatch):
         GeminiJsonGenerator()
     assert "GEMINI_API_KEY" in e.value.message and e.value.status_code == 503
     get_settings.cache_clear()
+
+
+async def test_gemini_generator_fails_over_across_models(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.services.context_prompt_generator import GeminiJsonGenerator
+
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setenv("GEMINI_TEXT_MODEL", "m1")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "m2,m3")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    g = GeminiJsonGenerator()
+    tried = []
+
+    class Err(Exception):
+        code = 503
+
+    async def fake(*, model, contents, config):
+        tried.append(model)
+        if model != "m3":
+            raise Err()
+        return SimpleNamespace(text='{"ok": 1}')
+
+    g._client = SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=fake)))
+    assert await g.generate_json(system="s", user="u", schema=dict, temperature=0) == {"ok": 1}
+    assert tried == ["m1", "m2", "m3"] and g.model == "m3"
+    get_settings.cache_clear()

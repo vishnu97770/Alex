@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 export interface Entry {
   id: string // LiveKit lk.segment_id
@@ -45,5 +45,6 @@ export const transcriptSlice = createSlice({
 export const { segmentUpserted, transcriptCleared } = transcriptSlice.actions
 export default transcriptSlice.reducer
 
-export const selectEntries = (st: { transcript: TranscriptState }): Entry[] =>
-  st.transcript.ids.map((id) => st.transcript.byId[id])
+const selectTranscript = (st: { transcript: TranscriptState }) => st.transcript
+/** Memoized: only returns a new array when the transcript state actually changes. */
+export const selectEntries = createSelector([selectTranscript], (t): Entry[] => t.ids.map((id) => t.byId[id]))

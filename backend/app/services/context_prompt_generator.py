@@ -47,6 +47,9 @@ class GeminiJsonGenerator:
 
         s = get_settings()
         self.model = model or s.gemini_text_model
+        fallbacks = [m.strip() for m in s.gemini_fallback_models.split(",") if m.strip()]
+        self.models = list(dict.fromkeys([self.model, *fallbacks]))
+        self._timeout_ms = int(s.gemini_timeout_seconds * 1000)
         key = api_key or s.gemini_api_key
         if not key:
             raise NotConfigured("The language model is not configured (missing GEMINI_API_KEY).")
@@ -59,23 +62,29 @@ class GeminiJsonGenerator:
             system_instruction=system,
             temperature=temperature,
             response_mime_type="application/json",
+            http_options=types.HttpOptions(timeout=self._timeout_ms),
             **({"response_json_schema": schema} if isinstance(schema, dict) else {"response_schema": schema}),
         )
         resp = None
-        for attempt in range(3):  # transient overload (429/503) is common: retry with backoff
-            try:
-                resp = await self._client.aio.models.generate_content(model=self.model, contents=user, config=config)
+        # Overload (429/5xx) is common: walk the model chain, short backoff between passes.
+        for _pass in range(2):
+            for model in self.models:
+                try:
+                    resp = await self._client.aio.models.generate_content(model=model, contents=user, config=config)
+                    self.model = model  # recorded as the generator model on the stored profile
+                    break
+                except Exception as e:
+                    code = getattr(e, "code", None)
+                    log.warning(
+                        "gemini call failed", extra={"error_type": type(e).__name__, "status": code, "model": model}
+                    )
+                    if code not in (429, 500, 502, 503, 504, None):
+                        raise UpstreamError("The language model rejected the request.") from e
+            if resp is not None:
                 break
-            except Exception as e:
-                code = getattr(e, "code", None)
-                log.warning(
-                    "gemini call failed", extra={"error_type": type(e).__name__, "status": code, "attempt": attempt + 1}
-                )
-                if code in (429, 500, 502, 503, 504) and attempt < 2:
-                    await asyncio.sleep(1.5 * (attempt + 1))
-                    continue
-                raise UpstreamError("The language model is unavailable right now. Please retry.") from e
-        assert resp is not None
+            await asyncio.sleep(1.5)
+        if resp is None:
+            raise UpstreamError("The language model is overloaded right now. Please retry in a moment.")
         try:
             result: dict[str, Any] = json.loads(resp.text or "")
         except json.JSONDecodeError as e:

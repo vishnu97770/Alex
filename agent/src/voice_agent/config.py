@@ -25,6 +25,7 @@ class AgentSettings(BaseSettings):
     gemini_api_key: str
     agent_llm_model: str = "gemini-3.5-flash-lite"
     gemini_text_model: str = "gemini-3.5-flash-lite"
+    gemini_fallback_models: str = "gemini-3.8-flash,gemini-3.5-flash"
     llm_temperature: float = 0.3
 
     deepgram_api_key: str

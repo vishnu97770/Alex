@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGenerateProfileMutation, useGetActiveProfileQuery } from '../api/api'
 import { useAppSelector } from '../app/hooks'
+import { progressMessage, useElapsed } from '../lib/useElapsed'
 
 export default function RolePage() {
   const [text, setText] = useState('')
@@ -10,10 +11,14 @@ export default function RolePage() {
   const [generate] = useGenerateProfileMutation()
   const { generation, error } = useAppSelector((s) => s.agentProfile)
   const pending = generation === 'pending'
+  const secs = useElapsed(pending)
+  const inflight = useRef<{ abort: () => void } | null>(null)
 
   const submit = async () => {
     try {
-      await generate({ description: text.trim() }).unwrap()
+      const req = generate({ description: text.trim() })
+      inflight.current = req
+      await req.unwrap()
       navigate('/call')
     } catch {
       /* error is held in the agentProfile slice and shown below */
@@ -35,6 +40,13 @@ export default function RolePage() {
       {error && (
         <div className="banner error" role="alert">
           {error} <button onClick={() => void submit()}>Retry</button>
+        </div>
+      )}
+      {pending && (
+        <div className="banner progress" role="status" aria-live="polite">
+          <span className="spinner" aria-hidden /> {progressMessage(secs)}{' '}
+          <span className="muted">({secs}s)</span>{' '}
+          <button onClick={() => inflight.current?.abort()}>Cancel</button>
         </div>
       )}
       <div className="row">

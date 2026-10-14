@@ -26,7 +26,12 @@ export const agentProfileSlice = createSlice({
       s.generation = 'idle'
       s.activeProfileId = payload.profile_id
     })
-    b.addMatcher(api.endpoints.generateProfile.matchRejected, (s, { payload }) => {
+    b.addMatcher(api.endpoints.generateProfile.matchRejected, (s, { payload, meta }) => {
+      if (meta.aborted) {
+        s.generation = 'idle' // user cancelled: not an error
+        s.error = null
+        return
+      }
       s.generation = 'failed'
       s.error = errMsg(payload)
     })
