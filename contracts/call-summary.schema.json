@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CallSummary",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["title", "summary", "call_outcome", "key_points", "user_requests",
+               "agent_commitments_and_next_actions", "unresolved_items", "information_collected",
+               "sentiment", "escalation_needed", "escalation_reason",
+               "topics_outside_scope_raised", "confidence_notes"],
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "maxLength": 60},
+    "summary": {"type": "string", "minLength": 1},
+    "call_outcome": {"type": "string"},
+    "key_points": {"type": "array", "items": {"type": "string"}},
+    "user_requests": {"type": "array", "items": {"type": "string"}},
+    "agent_commitments_and_next_actions": {
+      "type": "array",
+      "items": {"type": "object", "required": ["action", "owner", "due_if_stated"],
+                "properties": {"action": {"type": "string"}, "owner": {"type": "string"},
+                               "due_if_stated": {"type": ["string", "null"]}}}
+    },
+    "unresolved_items": {"type": "array", "items": {"type": "string"}},
+    "information_collected": {"type": "object", "additionalProperties": {"type": "string"}},
+    "sentiment": {"type": "string"},
+    "escalation_needed": {"type": "boolean"},
+    "escalation_reason": {"type": ["string", "null"]},
+    "topics_outside_scope_raised": {"type": "array", "items": {"type": "string"}},
+    "confidence_notes": {"type": "string"}
+  }
+}

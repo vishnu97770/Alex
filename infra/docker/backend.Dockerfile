@@ -4,6 +4,7 @@ WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/ ./
+COPY contracts/ ./contracts/
 
 FROM python:3.12.7-slim
 RUN useradd -m -u 10001 app

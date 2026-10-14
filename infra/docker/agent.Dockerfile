@@ -4,6 +4,7 @@ WORKDIR /app
 COPY agent/pyproject.toml agent/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY agent/ ./
+COPY contracts/ ./contracts/
 RUN uv sync --frozen --no-dev
 
 FROM python:3.12.7-slim

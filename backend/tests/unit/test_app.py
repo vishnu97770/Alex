@@ -13,7 +13,8 @@ def test_healthz_and_correlation_header():
     assert b"http_requests_total" in client.get("/metrics").content
 
 
-def test_missing_config_lists_names_only(monkeypatch):
+def test_missing_config_lists_names_only(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)  # no .env on disk
     monkeypatch.delenv("LIVEKIT_API_SECRET")
     monkeypatch.delenv("INTERNAL_API_TOKEN")
     get_settings.cache_clear()

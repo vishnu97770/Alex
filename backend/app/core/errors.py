@@ -25,6 +25,10 @@ class IllegalTransition(AppError):
     status_code, code = 409, "illegal_transition"
 
 
+class NotConfigured(AppError):
+    status_code, code = 503, "not_configured"
+
+
 class UpstreamError(AppError):
     status_code, code = 502, "upstream_error"
 
@@ -34,7 +38,5 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "error": {"code": exc.code, "message": exc.message, "correlation_id": get_correlation_id()}
-            },
+            content={"error": {"code": exc.code, "message": exc.message, "correlation_id": get_correlation_id()}},
         )

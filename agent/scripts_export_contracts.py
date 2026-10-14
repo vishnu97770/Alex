@@ -1,4 +1,5 @@
 """Export JSON Schemas to contracts/. Run: uv run python scripts_export_contracts.py"""
+
 import json
 from pathlib import Path
 

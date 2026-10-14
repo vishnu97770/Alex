@@ -13,8 +13,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://voice:voice@postgres:5432/voice
       REDIS_URL: redis://redis:6379/0
+      APP_ORIGIN: http://localhost:8080
     depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
-    ports: ["8000:8000"]
+    expose: ["8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/readyz')"]
       interval: 5s
@@ -24,5 +25,9 @@ services:
     env_file: .env
     environment: { BACKEND_INTERNAL_URL: "http://backend:8000" }
     depends_on: { backend: { condition: service_healthy } }
+  frontend:
+    build: { context: ., dockerfile: infra/docker/frontend.Dockerfile }
+    depends_on: { backend: { condition: service_healthy } }
+    ports: ["8080:8080"]
 volumes:
   pgdata:

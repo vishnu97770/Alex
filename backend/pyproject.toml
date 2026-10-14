@@ -10,6 +10,7 @@ dependencies = [
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "jsonschema>=4.26.0",
+    "livekit-api>=1.2.1",
     "prometheus-client>=0.26.0",
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",
@@ -33,7 +34,8 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
+extend-exclude = ["alembic/versions"]
 target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
@@ -44,3 +46,5 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]

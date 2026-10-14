@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
+    "jsonschema>=4.26.0",
     "livekit-agents>=1.8.7",
     "livekit-api>=1.2.1",
     "livekit-plugins-deepgram>=1.8.7",
@@ -12,6 +13,7 @@ dependencies = [
     "livekit-plugins-silero>=1.8.7",
     "livekit-plugins-turn-detector>=1.8.7",
     "pydantic>=2.14.1",
+    "pydantic-settings>=2.15.0",
 ]
 
 [build-system]
@@ -27,14 +29,17 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["ASYNC109"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
 
 [dependency-groups]
 dev = [
-    "jsonschema>=4.26.0",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
