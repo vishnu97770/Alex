@@ -21,7 +21,8 @@ export const ATTR = {
   agentState: 'lk.agent.state',
 } as const
 
-export const AGENT_JOIN_TIMEOUT_MS = 25_000
+// Agent startup (process spawn + LiveKit connect) can take 10-15s; be generous before declaring failure.
+export const AGENT_JOIN_TIMEOUT_MS = 45_000
 
 export interface Callbacks {
   onStatus(s: ConnectionStatus): void
@@ -44,6 +45,7 @@ export class CallRoomManager {
   private agentMeter: LevelMeter | null = null
   private joinTimer: ReturnType<typeof setTimeout> | null = null
   private intentionalClose = false
+  private audioEls = new Set<HTMLMediaElement>()
 
   getLevels() {
     return { user: this.userMeter?.getLevel() ?? 0, agent: this.agentMeter?.getLevel() ?? 0 }
@@ -71,7 +73,22 @@ export class CallRoomManager {
       if (track.kind === Track.Kind.Audio && participant.kind === ParticipantKind.AGENT) {
         this.agentMeter?.close()
         this.agentMeter = createLevelMeter(track.mediaStreamTrack)
+        // livekit-client does not play remote audio by itself: attach to a hidden <audio> element.
+        const el = track.attach()
+        el.style.display = 'none'
+        document.body.appendChild(el)
+        this.audioEls.add(el)
       }
+    })
+    room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+      track.detach().forEach((el) => {
+        el.remove()
+        this.audioEls.delete(el)
+      })
+    })
+    room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+      if (!room.canPlaybackAudio)
+        cb.onError('Your browser blocked audio. Click anywhere on the page to enable sound.')
     })
     room.on(RoomEvent.MediaDevicesError, () =>
       cb.onError('Microphone problem. Check permissions and devices.'),
@@ -98,6 +115,7 @@ export class CallRoomManager {
 
     cb.onStatus('connecting')
     await room.connect(url, token)
+    await room.startAudio().catch(() => undefined) // within the user's click gesture: unlock playback
     try {
       await room.localParticipant.setMicrophoneEnabled(true)
     } catch {
@@ -153,6 +171,8 @@ export class CallRoomManager {
     this.userMeter?.close()
     this.agentMeter?.close()
     this.userMeter = this.agentMeter = null
+    this.audioEls.forEach((el) => el.remove())
+    this.audioEls.clear()
     this.room = null
   }
 }

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 
 from dotenv import find_dotenv, load_dotenv
 from livekit.agents import AgentSession, JobContext, JobProcess, WorkerOptions, cli
@@ -30,7 +31,13 @@ def prewarm(proc: JobProcess) -> None:
 
 
 async def entrypoint(ctx: JobContext) -> None:
+    t0 = time.perf_counter()
+
+    def step(name: str) -> None:
+        log.info("startup step", extra={"step": name, "elapsed_s": round(time.perf_counter() - t0, 2)})
+
     settings = get_settings()
+    step("settings")
     meta = json.loads(ctx.job.metadata or "{}")
     call_id = meta.get("call_id")
     if not call_id:
@@ -42,9 +49,12 @@ async def entrypoint(ctx: JobContext) -> None:
         settings.internal_api_token,
         correlation_id=meta.get("correlation_id", ""),
     )
+    step("before_connect")
     await ctx.connect()
+    step("connected")
 
     context = await backend.get_context(call_id)  # profile snapshot + authorized runtime facts
+    step("context_fetched")
     profile = AgentProfileSpec.model_validate(context["profile"])
     rt = context["runtime"]
     state = CallState(call_id=call_id, correlation_id=context["correlation_id"], direction=context["direction"])
@@ -55,14 +65,19 @@ async def entrypoint(ctx: JobContext) -> None:
     tool_ctx.session = session
     agent = build_agent(profile, runtime, build_tools(profile.allowed_tools, tool_ctx))
 
+    step("session_built")
     recorder = TranscriptRecorder(backend, call_id)
     recorder.attach(session)
     closed = asyncio.Event()
     unrecoverable = 0
 
     @session.on("close")
-    def _on_close(_: object) -> None:
+    def _on_close(ev: object) -> None:
+        reason = getattr(ev, "reason", None)
+        reason_s = str(getattr(reason, "value", reason) or "closed")
+        state.end_reason = state.end_reason or reason_s
         closed.set()
+        ctx.shutdown(reason=reason_s)  # run the shutdown hooks (summary) now, not when the room times out
 
     @session.on("error")
     def _on_error(ev: object) -> None:
@@ -106,6 +121,7 @@ async def entrypoint(ctx: JobContext) -> None:
             close_on_disconnect=True,
         ),
     )
+    step("session_started")
     try:
         await backend.post_event(call_id, "agent_joined")
     except Exception:
