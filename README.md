@@ -63,18 +63,72 @@ Dev: `typescript`, `vite`, `@vitejs/plugin-react`, `vitest`, `jsdom`, `@testing-
 | 6390 | dev Redis (container port 6379) |
 | 8080 | frontend in the full Docker stack |
 
-### Install everything
+### Install the system tools
+
+**Ubuntu / Debian Linux**
 ```bash
-cd backend  && uv sync                 # Python deps from uv.lock
-cd ../agent && uv sync
-cd agent && uv run python -m voice_agent.worker download-files   # one-time: VAD / turn-detector model weights
-cd ../frontend && npm ci               # Node deps from package-lock.json
+sudo apt update && sudo apt install -y git make curl postgresql-client
+
+# uv (Python package/env manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Node.js 22 via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc && nvm install 22
+
+# Docker Engine + Compose plugin
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # then log out and back in
 ```
-A browser with microphone access is needed to talk to the agent (tested in Chrome).
+
+**macOS (Homebrew)**
+```bash
+brew install git make uv node@22 libpq
+brew install --cask docker          # Docker Desktop; open it once so the daemon starts
+```
+
+**Windows**: use WSL2 and follow the Ubuntu steps inside it (`wsl --install -d Ubuntu`, then install Docker
+Desktop with the WSL2 backend). Native alternative:
+```powershell
+winget install Git.Git astral-sh.uv OpenJS.NodeJS.LTS Docker.DockerDesktop
+```
+(`make` is not available natively on Windows; run the commands from the `Makefile` by hand or use WSL.)
+
+Check everything is installed:
+```bash
+git --version && uv --version && node -v && npm -v && docker --version && docker compose version && make --version
+```
+You do not need to install Python yourself: `uv sync` downloads Python 3.12+ if it is missing.
+
+### Install the project
+```bash
+git clone <your-repo-url> voice-agent-platform
+cd voice-agent-platform
+
+# 1. Python dependencies (creates backend/.venv and agent/.venv from the lockfiles)
+(cd backend && uv sync)
+(cd agent && uv sync)
+
+# 2. One-time download of the voice model weights (VAD + turn detector)
+(cd agent && uv run python -m voice_agent.worker download-files)
+
+# 3. Frontend dependencies
+(cd frontend && npm ci)
+
+# 4. Configuration: copy the template, then fill in your keys (see "Accounts and API keys")
+cp .env.example .env
+sed -i "s|^INTERNAL_API_TOKEN=.*|INTERNAL_API_TOKEN=$(openssl rand -hex 24)|; s|^WORKSPACE_COOKIE_SECRET=.*|WORKSPACE_COOKIE_SECRET=$(openssl rand -hex 24)|" .env
+#   then edit .env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GEMINI_API_KEY, DEEPGRAM_API_KEY
+ln -sf ../.env backend/.env && ln -sf ../.env agent/.env   # lets each service find the shared .env
+
+# 5. Start Postgres + Redis (Docker) and create the database tables
+make infra
+(cd backend && uv run alembic upgrade head)
+```
+On macOS use `sed -i ''` instead of `sed -i`. Now continue with **Run** below.
 
 ## Run
-1. `cp .env.example .env` and fill: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `GEMINI_API_KEY`,
-   `DEEPGRAM_API_KEY`, `INTERNAL_API_TOKEN`, `WORKSPACE_COOKIE_SECRET` (the last two: any 16+ random chars).
+1. Complete **Install the project** above (dependencies, `.env` with your keys, Postgres/Redis, migrations).
 2. Everything in containers: `make up` → UI on http://localhost:8080.
    (In local dev set `BACKEND_INTERNAL_URL=http://localhost:8000`; compose overrides it to `http://backend:8000`.)
 3. Or local dev: `make dev` (Postgres/Redis + migrations), then in three terminals:
