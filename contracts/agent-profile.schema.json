@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "EscalationRules": {
+      "additionalProperties": false,
+      "properties": {
+        "how": {
+          "default": "",
+          "title": "How",
+          "type": "string"
+        },
+        "when": {
+          "items": {
+            "type": "string"
+          },
+          "title": "When",
+          "type": "array"
+        }
+      },
+      "title": "EscalationRules",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_name": {
+          "title": "Agent Name",
+          "type": "string"
+        },
+        "organization": {
+          "default": "",
+          "title": "Organization",
+          "type": "string"
+        },
+        "role_summary": {
+          "default": "",
+          "title": "Role Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_name"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "IdentityVerificationPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "default": 3,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "method": {
+          "default": "none",
+          "enum": [
+            "none",
+            "verbal_secret"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "pre_verification_disclosure": {
+          "default": "state only who is calling and why",
+          "title": "Pre Verification Disclosure",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "title": "IdentityVerificationPolicy",
+      "type": "object"
+    },
+    "InterruptionSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "min_duration_s": {
+          "default": 0.5,
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Min Duration S",
+          "type": "number"
+        },
+        "min_words": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Min Words",
+          "type": "integer"
+        }
+      },
+      "title": "InterruptionSettings",
+      "type": "object"
+    },
+    "Policies": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation_required_for_actions": {
+          "default": true,
+          "title": "Confirmation Required For Actions",
+          "type": "boolean"
+        },
+        "disclosure_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Disclosure Rules",
+          "type": "array"
+        },
+        "identity_verification": {
+          "$ref": "#/$defs/IdentityVerificationPolicy"
+        }
+      },
+      "title": "Policies",
+      "type": "object"
+    },
+    "VoiceBehavior": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_lines": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Fallback Lines",
+          "type": "object"
+        },
+        "greeting": {
+          "default": "",
+          "title": "Greeting",
+          "type": "string"
+        },
+        "interruption": {
+          "$ref": "#/$defs/InterruptionSettings"
+        },
+        "latency_profile": {
+          "default": "balanced",
+          "enum": [
+            "aggressive",
+            "balanced",
+            "conservative"
+          ],
+          "title": "Latency Profile",
+          "type": "string"
+        },
+        "speaking_rate": {
+          "default": 1.0,
+          "maximum": 1.5,
+          "minimum": 0.5,
+          "title": "Speaking Rate",
+          "type": "number"
+        },
+        "voice_id": {
+          "default": "",
+          "title": "Voice Id",
+          "type": "string"
+        }
+      },
+      "title": "VoiceBehavior",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    },
+    "audit_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Audit Fields",
+      "type": "array"
+    },
+    "context_prompt": {
+      "title": "Context Prompt",
+      "type": "string"
+    },
+    "data_sources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Sources",
+      "type": "array"
+    },
+    "end_conditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "End Conditions",
+      "type": "array"
+    },
+    "escalation_rules": {
+      "$ref": "#/$defs/EscalationRules"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity"
+    },
+    "permissions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Permissions",
+      "type": "array"
+    },
+    "policies": {
+      "$ref": "#/$defs/Policies"
+    },
+    "summary_schema_extensions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "extra summary fields: name -> description",
+      "title": "Summary Schema Extensions",
+      "type": "object"
+    },
+    "triggers": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Triggers",
+      "type": "array"
+    },
+    "voice_behavior": {
+      "$ref": "#/$defs/VoiceBehavior"
+    }
+  },
+  "required": [
+    "identity",
+    "context_prompt"
+  ],
+  "title": "AgentProfileSpec",
+  "type": "object"
+}

@@ -1,0 +1,14 @@
+# Dev infrastructure only (host ports offset to avoid clashing with local Postgres/Redis).
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment: { POSTGRES_USER: voice, POSTGRES_PASSWORD: voice, POSTGRES_DB: voice }
+    ports: ["5443:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U voice"], interval: 3s, retries: 20 }
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6390:6379"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, retries: 20 }
+volumes:
+  pgdata:

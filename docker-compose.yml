@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment: { POSTGRES_USER: voice, POSTGRES_PASSWORD: voice, POSTGRES_DB: voice }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U voice"], interval: 3s, retries: 20 }
+  redis:
+    image: redis:7.4-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, retries: 20 }
+  backend:
+    build: { context: ., dockerfile: infra/docker/backend.Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://voice:voice@postgres:5432/voice
+      REDIS_URL: redis://redis:6379/0
+    depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_healthy } }
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/readyz')"]
+      interval: 5s
+      retries: 20
+  agent:
+    build: { context: ., dockerfile: infra/docker/agent.Dockerfile }
+    env_file: .env
+    environment: { BACKEND_INTERNAL_URL: "http://backend:8000" }
+    depends_on: { backend: { condition: service_healthy } }
+volumes:
+  pgdata:
