@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     token_ttl_seconds: int = 600
 
     gemini_api_key: str = ""
-    gemini_text_model: str = "gemini-2.5-flash"
+    gemini_text_model: str = "gemini-3.5-flash-lite"
 
     transcript_retention_days: int = 90
     rate_limit_public: str = "30/minute"

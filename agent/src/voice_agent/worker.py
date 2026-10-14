@@ -5,6 +5,7 @@ import json
 import logging
 import os
 
+from dotenv import find_dotenv, load_dotenv
 from livekit.agents import AgentSession, JobContext, JobProcess, WorkerOptions, cli
 from livekit.agents.voice import room_io
 
@@ -130,6 +131,8 @@ async def _cancel(task: "asyncio.Task[None]") -> None:
 
 
 def main() -> None:
+    # The framework reads LIVEKIT_* from os.environ; export .env there (real env vars still win).
+    load_dotenv(find_dotenv(usecwd=True), override=False)
     # LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET are read from the environment by the framework,
     # so `download-files` works at image build time without secrets.
     cli.run_app(

@@ -4,7 +4,9 @@ The description is untrusted: it is wrapped in delimiters and the generator is t
 to obey instructions inside it. Rendering is a deterministic template, not a second LLM pass.
 """
 
+import asyncio
 import json
+import logging
 import re
 from typing import Any, Protocol
 
@@ -14,6 +16,7 @@ from app.core.config import get_settings
 from app.core.errors import NotConfigured, UpstreamError
 from app.schemas.profile import ContextPromptFields
 
+log = logging.getLogger("context_prompt")
 PLACEHOLDER_RE = re.compile(r"\[CLIENT-PROVIDED:[^\]\n]+\]")
 
 META_PROMPT = """You design the operating brief for a real-time VOICE agent that a business will deploy.
@@ -52,19 +55,27 @@ class GeminiJsonGenerator:
     async def generate_json(self, *, system: str, user: str, schema: Any, temperature: float = 0.2) -> dict[str, Any]:
         from google.genai import types
 
-        try:
-            resp = await self._client.aio.models.generate_content(
-                model=self.model,
-                contents=user,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    temperature=temperature,
-                    response_mime_type="application/json",
-                    **({"response_json_schema": schema} if isinstance(schema, dict) else {"response_schema": schema}),
-                ),
-            )
-        except Exception as e:  # provider errors: never leak details/keys
-            raise UpstreamError("The language model is unavailable right now. Please retry.") from e
+        config = types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=temperature,
+            response_mime_type="application/json",
+            **({"response_json_schema": schema} if isinstance(schema, dict) else {"response_schema": schema}),
+        )
+        resp = None
+        for attempt in range(3):  # transient overload (429/503) is common: retry with backoff
+            try:
+                resp = await self._client.aio.models.generate_content(model=self.model, contents=user, config=config)
+                break
+            except Exception as e:
+                code = getattr(e, "code", None)
+                log.warning(
+                    "gemini call failed", extra={"error_type": type(e).__name__, "status": code, "attempt": attempt + 1}
+                )
+                if code in (429, 500, 502, 503, 504) and attempt < 2:
+                    await asyncio.sleep(1.5 * (attempt + 1))
+                    continue
+                raise UpstreamError("The language model is unavailable right now. Please retry.") from e
+        assert resp is not None
         try:
             result: dict[str, Any] = json.loads(resp.text or "")
         except json.JSONDecodeError as e:
