@@ -33,6 +33,7 @@ class VoiceBehavior(_Model):
         default_factory=lambda: {
             "tool_failure": "I'm sorry, I can't retrieve that right now.",
             "technical_difficulty": "I'm having technical difficulties, so I'll end this call for now.",
+            "temporary_issue": "Sorry, I had a small hiccup. Could you say that again?",
             "not_understood": "Sorry, I didn't catch that. Could you say it again?",
         }
     )

@@ -26,3 +26,15 @@ def test_outbound_runtime_context_includes_reason():
     rt = RuntimeContext(direction="OUTBOUND", now_iso="x", outbound_reason="appointment reminder")
     out = compose_instructions(_p("brief"), rt)
     assert "outbound phone call" in out and "appointment reminder" in out
+
+
+def test_guardrails_require_the_three_step_ending_protocol():
+    out = compose_instructions(_p("brief"), RT)
+    assert "30 words" in out and "anything else" in out and "confirm" in out and "caller_confirmed=true" in out
+    assert "Never end the call because of an error" in out
+
+
+def test_llm_attempt_timeout_respects_gemini_minimum_deadline():
+    from voice_agent.providers.llm import ATTEMPT_TIMEOUT_S
+
+    assert ATTEMPT_TIMEOUT_S >= 10  # Gemini returns 400 for deadlines < 10s

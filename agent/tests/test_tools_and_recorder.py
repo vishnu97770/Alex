@@ -37,7 +37,7 @@ def msg(role, text, id_="i1", **kw):
 
 def test_end_call_always_present_and_unknown_tool_fails_closed():
     ctx = ToolContext(state=CallState("c", "k"), backend=FakeBackend())
-    assert [t.info.name for t in build_tools([], ctx)] == ["end_call"]
+    assert [t.info.name for t in build_tools([], ctx)] == ["propose_end_call", "end_call"]
     with pytest.raises(UnknownToolError):
         build_tools(["get_secrets"], ctx)
 
@@ -63,3 +63,28 @@ async def test_recorder_dedupes_orders_and_survives_backend_errors():
     assert [t["seq"] for t in rec.turns] == [0, 1]
     assert [t["seq"] for t in be.turns] == [1]  # seq 0 failed once; local copy is kept for the summary
     await asyncio.sleep(0)
+
+
+def _tools(state, ended):
+    session = SimpleNamespace(shutdown=lambda drain=True: ended.append(drain))
+    tools = {t.info.name: t for t in build_tools([], ToolContext(state, FakeBackend()))}
+    return tools, SimpleNamespace(session=session)
+
+
+async def test_end_call_needs_prior_proposal_then_a_later_caller_message():
+    ended, state = [], CallState("c", "k")
+    tools, rc = _tools(state, ended)
+    assert "not announced" in await tools["end_call"](rc, reason="x", caller_confirmed=True)  # no proposal
+    state.user_turns = 3
+    await tools["propose_end_call"](rc)
+    assert "wait for the caller" in await tools["end_call"](rc, reason="x", caller_confirmed=True)  # caller silent
+    state.user_turns = 4  # caller answered after the announcement
+    assert "wait for the caller" in await tools["end_call"](rc, reason="x", caller_confirmed=False)
+    assert ended == [] and state.end_reason is None
+    out = await tools["end_call"](rc, reason="caller agreed to end", caller_confirmed=True)
+    assert ended == [True] and state.end_reason == "caller agreed to end" and "ending" in out
+
+
+def test_both_call_ending_tools_are_always_registered():
+    names = [t.info.name for t in build_tools([], ToolContext(CallState("c", "k"), FakeBackend()))]
+    assert names == ["propose_end_call", "end_call"]

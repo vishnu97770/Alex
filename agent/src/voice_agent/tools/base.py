@@ -10,6 +10,8 @@ class CallState:
     correlation_id: str
     direction: str = "WEB"
     end_reason: str | None = None
+    user_turns: int = 0  # finalized caller utterances so far
+    end_proposed_at: int | None = None  # user_turns value when the agent announced it would end the call
     extra: dict[str, Any] = field(default_factory=dict)
 
 

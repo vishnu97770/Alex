@@ -24,6 +24,7 @@ from voice_agent.tools.base import CallState, ToolContext
 from voice_agent.tools.registry import build_tools
 
 log = logging.getLogger("worker")
+MAX_CONSECUTIVE_FAILURES = 3
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -81,19 +82,50 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("error")
     def _on_error(ev: object) -> None:
+        """Provider errors never hang up on the first failure: apologise and carry on; end the call only
+        after MAX_CONSECUTIVE_FAILURES unrecoverable errors with no successful agent reply in between."""
         nonlocal unrecoverable
         err = getattr(ev, "error", None)
         if getattr(err, "recoverable", True):
             return
         unrecoverable += 1
-        log.error(
-            "unrecoverable session error",
-            extra={"call_id": call_id, "source": type(getattr(ev, "source", "")).__name__},
-        )
-        if unrecoverable == 1:
-            session.say(profile.voice_behavior.fallback_lines["technical_difficulty"], allow_interruptions=False)
-        state.end_reason = state.end_reason or "provider_failure"
-        session.shutdown(drain=True)
+        info = {"call_id": call_id, "consecutive": unrecoverable, "error_type": type(err).__name__}
+        log.error("unrecoverable session error", extra=info)
+        lines = profile.voice_behavior.fallback_lines
+        if unrecoverable >= MAX_CONSECUTIVE_FAILURES:
+            session.say(lines["technical_difficulty"], allow_interruptions=False)
+            state.end_reason = state.end_reason or "provider_failure"
+            session.shutdown(drain=True)
+        else:
+            session.say(lines.get("temporary_issue", lines["not_understood"]))
+
+    @session.on("user_input_transcribed")
+    def _on_user_text(ev: object) -> None:
+        if getattr(ev, "is_final", False):
+            state.user_turns += 1
+
+    @session.on("agent_state_changed")
+    def _on_agent_state(ev: object) -> None:
+        nonlocal unrecoverable
+        if getattr(ev, "new_state", None) == "speaking" and getattr(ev, "old_state", None) == "thinking":
+            unrecoverable = 0  # a real LLM-backed reply got through
+
+    @session.on("metrics_collected")
+    def _on_metrics(ev: object) -> None:
+        m = getattr(ev, "metrics", None)
+        kind = getattr(m, "type", "")
+        if kind == "llm_metrics":
+            info = {"ttft": round(m.ttft, 3), "cancelled": m.cancelled, "tokens": m.total_tokens, "label": m.label}
+        elif kind == "tts_metrics":
+            info = {"ttfb": round(m.ttfb, 3), "cancelled": m.cancelled, "label": m.label}
+        elif kind == "eou_metrics":
+            info = {
+                "eou_delay": round(m.end_of_utterance_delay, 3),
+                "transcription_delay": round(m.transcription_delay, 3),
+            }
+        else:
+            return
+        log.info("metric %s", kind, extra={"call_id": call_id, **info})
 
     summarizer = GeminiSummarizer(settings)
 
