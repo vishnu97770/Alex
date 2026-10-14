@@ -231,7 +231,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
-  max-height: 40vh;
+  max-height: auto;
   overflow: auto;
 }
 .summary-card h2 {
