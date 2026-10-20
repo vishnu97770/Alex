@@ -55,6 +55,8 @@ async def run_forever(
         try:
             async with sm() as s:
                 await sweep_once(s, generator, model)
+        except OSError as e:  # database unreachable (containers down): one line, not a stack trace every 30s
+            log.warning("sweep skipped, database unreachable: %s (is `make infra` running?)", e)
         except Exception:
             log.exception("sweep failed")
         await asyncio.sleep(interval)

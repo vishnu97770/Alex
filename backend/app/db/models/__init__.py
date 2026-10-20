@@ -1,3 +1,4 @@
+from app.db.models.accounts import Agent, AgentPayment, CallLink, Manager, User
 from app.db.models.core import (
     AgentProfile,
     AgentProfileVersion,
@@ -9,11 +10,16 @@ from app.db.models.core import (
 )
 
 __all__ = [
+    "Agent",
+    "AgentPayment",
     "AgentProfile",
     "AgentProfileVersion",
     "AuditEvent",
     "Call",
+    "CallLink",
     "CallSummary",
     "CallTurn",
+    "Manager",
+    "User",
     "Workspace",
 ]

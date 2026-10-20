@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     workspace_cookie_secret: str = Field(min_length=16)
     app_origin: str = "http://localhost:5173"
 
+    # Real user auth (separate secret from the legacy anonymous workspace cookie).
+    auth_jwt_secret: str = Field(min_length=16)
+    access_token_ttl_seconds: int = 60 * 60 * 24 * 7
+    rate_limit_auth: str = "10/minute"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""  # default: {APP_ORIGIN}/api/v1/auth/google/callback
+    upload_dir: str = "uploads"
+    avatar_max_bytes: int = 2 * 1024 * 1024
+
     livekit_url: str
     livekit_api_key: str
     livekit_api_secret: str
@@ -40,6 +50,14 @@ class Settings(BaseSettings):
     feature_outbound_panel: bool = False
     summary_webhook_url: str = ""
     summary_webhook_secret: str = ""
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def google_redirect(self) -> str:
+        return self.google_redirect_uri or f"{self.app_origin.rstrip('/')}/api/v1/auth/google/callback"
 
 
 @lru_cache

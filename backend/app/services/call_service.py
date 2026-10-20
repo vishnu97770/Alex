@@ -9,16 +9,24 @@ from app.core.config import Settings
 from app.core.correlation import new_correlation_id
 from app.core.errors import NotFound
 from app.core.state_machine import CALL, CallState
-from app.db.models import AgentProfileVersion, Call, CallTurn
+from app.db.models import AgentProfileVersion, Call, CallLink, CallTurn
 from app.services import audit_service, livekit_service, profile_service
 
 
 async def create_web_call(
-    s: AsyncSession, settings: Settings, workspace_id: uuid.UUID, profile_id: uuid.UUID | None
+    s: AsyncSession,
+    settings: Settings,
+    workspace_id: uuid.UUID,
+    profile_id: uuid.UUID | None,
+    *,
+    version: AgentProfileVersion | None = None,
+    link: CallLink | None = None,
 ) -> tuple[Call, str]:
+    """`version`/`link` let the manager and agent calls pin a specific profile version and record ownership."""
     if profile_id is not None:
         raise NotFound("Selecting a non-active profile is not supported yet")
-    _, version = await profile_service.get_active(s, workspace_id)  # snapshot current version
+    if version is None:
+        _, version = await profile_service.get_active(s, workspace_id)  # snapshot current version
     call = Call(
         workspace_id=workspace_id,
         direction="WEB",
@@ -30,6 +38,9 @@ async def create_web_call(
     )
     s.add(call)
     await s.flush()
+    if link is not None:
+        link.call_id = call.id
+        s.add(link)
     token = livekit_service.mint_participant_token(
         settings,
         room=call.room_name,

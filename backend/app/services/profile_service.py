@@ -93,3 +93,38 @@ async def edit_prompt(
     )
     await s.commit()
     return p, v
+
+
+async def create_detached(
+    s: AsyncSession, workspace_id: uuid.UUID, *, source: str, fields: dict[str, Any], prompt: str, model: str
+) -> tuple[AgentProfile, AgentProfileVersion]:
+    """New profile that is NOT made the workspace's active one. Caller commits."""
+    p = AgentProfile(workspace_id=workspace_id, current_version=1)
+    s.add(p)
+    await s.flush()
+    v = await _add_version(s, p, source=source, fields=fields, prompt=prompt, model=model)
+    return p, v
+
+
+async def append_version(
+    s: AsyncSession, profile_id: uuid.UUID, *, source: str, fields: dict[str, Any], prompt: str, model: str
+) -> AgentProfileVersion:
+    """Adds a new immutable version (past calls keep theirs). Caller commits."""
+    p = await s.get(AgentProfile, profile_id)
+    if p is None:
+        raise NotFound("Profile not found")
+    p.current_version += 1
+    return await _add_version(s, p, source=source, fields=fields, prompt=prompt, model=model)
+
+
+async def current_version(s: AsyncSession, profile_id: uuid.UUID) -> AgentProfileVersion:
+    p = await s.get(AgentProfile, profile_id)
+    if p is None:
+        raise NotFound("Profile not found")
+    v = await s.scalar(
+        select(AgentProfileVersion).where(
+            AgentProfileVersion.profile_id == p.id, AgentProfileVersion.version == p.current_version
+        )
+    )
+    assert v is not None
+    return v

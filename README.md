@@ -138,3 +138,16 @@ On macOS use `sed -i ''` instead of `sed -i`. Now continue with **Run** below.
 
 ## Test
 `make test` (backend + agent), `cd frontend && npm test -- --run`, `make lint`.
+
+## Web app: accounts, agents, manager
+
+Routes: `/home` (the landing page, `frontend/src/pages/Landing.jsx`; always shown; signed-in visitors see "Open app" in its nav, others use Sign in / Sign up which go to `/checkin`), `/checkin`, `/dashboard/:uid`,
+`/agents/:uid`, `/create_agent/:uid`, `/create_agent/:uid/:aid` (simulated payment, amount `100`), `/agents/:uid/update/:aid`,
+`/manager/:uid` (+ `/manager/:uid/chats/:id`), `/profile/:uid`, `/settings/:uid`.  The landing page's components and CSS live in `frontend/src/components/landing/` (taken from github.com/vishnu97770/Real-Time-Voice-Agent).
+
+Auth: email + password (argon2) and Google. The session is an httpOnly JWT cookie plus a CSRF cookie echoed in `X-CSRF-Token`.
+Set `AUTH_JWT_SECRET` in `.env`. Google sign-in stays disabled until `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set; create a
+Web OAuth client in Google Cloud Console and add `http://localhost:5173/api/v1/auth/google/callback` as an authorised redirect URI.
+
+Run order: `make infra`, `cd backend && uv run alembic upgrade head` (migration `0002` adds `users`, `agents`, `managers`,
+`agent_payments`, `call_links`; existing tables are untouched), then backend, agent and frontend as above.

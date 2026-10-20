@@ -3,8 +3,13 @@ import { useListCallsQuery } from '../../api/api'
 import { useAppDispatch, useAppSelector } from '../../app/hooks'
 import { callReset } from '../../features/call/slice'
 import { transcriptCleared } from '../../features/transcript/slice'
-export default function Sidebar() {
-    const { data } = useListCallsQuery()
+/**
+ * The calls bar. Defaults reproduce the original single-user app; MyManager passes its own
+ * call list and routes (`calls`, `chatsBase`, `newCallPath`) and hides the legacy Settings link.
+ */
+export default function Sidebar({ calls, chatsBase = '', newCallPath = '/', showSettings = true }) {
+    const { data: own } = useListCallsQuery(undefined, { skip: calls !== undefined })
+    const data = calls ?? own
     const navigate = useNavigate()
     const dispatch = useAppDispatch()
     const live = useAppSelector((s) => s.call.status)
@@ -13,7 +18,7 @@ export default function Sidebar() {
             dispatch(callReset())
             dispatch(transcriptCleared())
         }
-        navigate('/') // always ask: define a new role or reuse the last one
+        navigate(newCallPath) // default: always ask for a role first
     }
     return (
         <nav className="sidebar" aria-label="Call history">
@@ -24,7 +29,7 @@ export default function Sidebar() {
                 {(data ?? []).map((c) => (
                     <li key={c.id}>
                         <NavLink
-                            to={`/chats/${c.id}`}
+                            to={`${chatsBase}/chats/${c.id}`}
                             className={({ isActive }) => (isActive ? 'active' : '')}
                         >
                             {c.title ?? 'New call'}
@@ -32,9 +37,11 @@ export default function Sidebar() {
                     </li>
                 ))}
             </ul>
-            <NavLink to="/settings" className="settings-link">
-                Settings
-            </NavLink>
+            {showSettings && (
+                <NavLink to="/settings" className="settings-link">
+                    Settings
+                </NavLink>
+            )}
         </nav>
     )
 }

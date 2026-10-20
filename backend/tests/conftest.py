@@ -1,6 +1,11 @@
 import os
+import tempfile
 
 os.environ.update(
+    AUTH_JWT_SECRET="test-auth-jwt-secret-0123456789abcdef",
+    RATE_LIMIT_AUTH="1000/minute",
+    RATE_LIMIT_PUBLIC="1000/minute",
+    UPLOAD_DIR=tempfile.mkdtemp(prefix="rtva-test-uploads-"),
     ENV="test",
     DATABASE_URL="sqlite+aiosqlite:///:memory:",
     INTERNAL_API_TOKEN="test-internal-token-123456",

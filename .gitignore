@@ -15,3 +15,5 @@ ml/models/*.pkl
 benchmarks/reports/raw/
 playwright-report/
 test-results/
+
+backend/uploads/

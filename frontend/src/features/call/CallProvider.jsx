@@ -1,13 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppDispatch } from '../../app/hooks'
-import { useCreateCallMutation, useEndCallMutation } from '../../api/api'
+import { useCreateCallMutation, useCreateManagerCallMutation, useEndCallMutation } from '../../api/api'
 import { CallRoomManager } from '../../lib/livekit/roomManager'
 import { segmentUpserted, transcriptCleared } from '../transcript/slice'
 import { agentStateChanged, callEnded, callFailed, callStarting, muteChanged, statusChanged } from './slice'
 const Ctx = createContext(null)
-export function CallProvider({ children }) {
+/** `managerUid`: start calls with that user's manager agent instead of the legacy active profile. */
+export function CallProvider({ children, managerUid }) {
     const dispatch = useAppDispatch()
-    const [createCall] = useCreateCallMutation()
+    const [createLegacyCall] = useCreateCallMutation()
+    const [createManagerCall] = useCreateManagerCallMutation()
     const [endCallApi] = useEndCallMutation()
     const [manager] = useState(() => new CallRoomManager())
     const callId = useRef(null)
@@ -21,7 +23,7 @@ export function CallProvider({ children }) {
         ended.current = false
         dispatch(transcriptCleared())
         try {
-            const r = await createCall().unwrap()
+            const r = await (managerUid ? createManagerCall(managerUid) : createLegacyCall()).unwrap()
             callId.current = r.call_id
             dispatch(callStarting(r.call_id))
             await manager.connect(r.livekit_url, r.token, {
@@ -36,7 +38,7 @@ export function CallProvider({ children }) {
             dispatch(callFailed('Could not start the call. Please try again.'))
             return null
         }
-    }, [createCall, dispatch, finish, manager])
+    }, [createLegacyCall, createManagerCall, managerUid, dispatch, finish, manager])
     const end = useCallback(async () => {
         const id = callId.current
         await manager.disconnect()

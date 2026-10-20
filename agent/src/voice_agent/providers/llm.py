@@ -12,10 +12,10 @@ def model_chain(primary: str, fallbacks: str) -> list[str]:
 
 
 def build_llm(s: AgentSettings) -> llm.LLM:
-    """Primary model with automatic failover: Gemini overload (503) must not drop a live call."""
+    """The call model (gemini-3.5-flash-lite by default), with failover only if AGENT_LLM_FALLBACK_MODELS is set."""
     llms = [
         google.LLM(model=m, api_key=s.gemini_api_key, temperature=s.llm_temperature)
-        for m in model_chain(s.agent_llm_model, s.gemini_fallback_models)
+        for m in model_chain(s.agent_llm_model, s.agent_llm_fallback_models)
     ]
     return (
         llms[0] if len(llms) == 1 else llm.FallbackAdapter(llms, attempt_timeout=ATTEMPT_TIMEOUT_S, max_retry_per_llm=0)

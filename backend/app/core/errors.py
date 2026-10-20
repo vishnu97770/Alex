@@ -17,6 +17,18 @@ class NotFound(AppError):
     status_code, code = 404, "not_found"
 
 
+class Unauthorized(AppError):
+    status_code, code = 401, "unauthorized"
+
+
+class Forbidden(AppError):
+    status_code, code = 403, "forbidden"
+
+
+class PaymentRejected(AppError):
+    status_code, code = 402, "payment_rejected"
+
+
 class Conflict(AppError):
     status_code, code = 409, "conflict"
 

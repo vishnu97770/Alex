@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram
 from slowapi.errors import RateLimitExceeded
 
-from app.api.v1 import agent_profiles, calls, health, internal
+from app.api.v1 import agent_profiles, agents, auth, calls, health, internal, manager, users
 from app.core.config import get_settings
 from app.core.correlation import correlation_id_var, new_correlation_id
 from app.core.errors import install_error_handlers
@@ -50,7 +50,7 @@ def create_app() -> FastAPI:
         allow_origins=[settings.app_origin],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT"],
-        allow_headers=["Content-Type", "X-Correlation-ID"],
+        allow_headers=["Content-Type", "X-Correlation-ID", "X-CSRF-Token"],
     )
 
     @app.middleware("http")
@@ -72,7 +72,15 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)  # type: ignore[arg-type]
     app.include_router(health.router)
     api_v1 = APIRouter(prefix="/api/v1")
-    for r in (health.router, agent_profiles.router, calls.router):
+    for r in (
+        health.router,
+        agent_profiles.router,
+        calls.router,
+        auth.router,
+        users.router,
+        agents.router,
+        manager.router,
+    ):
         api_v1.include_router(r)
     app.include_router(api_v1)
     app.include_router(internal.router)  # /internal: never routed through public nginx
