@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String, Text, Uuid
+from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, CreatedMixin, IdMixin, utcnow
@@ -62,3 +62,13 @@ class CallLink(Base, CreatedMixin):
     uid: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.uid"), index=True)
     manager_mid: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("managers.mid"), nullable=True, index=True)
     agent_aid: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.aid"), nullable=True, index=True)
+
+
+class ScreenTimeDaily(Base):
+    """Foreground seconds a user spent in the app on one local day. A running total only: no page or time history."""
+
+    __tablename__ = "screen_time_daily"
+    uid: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.uid"), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    seconds: Mapped[int] = mapped_column(Integer, default=0)
+    last_beat_at: Mapped[datetime | None] = mapped_column(nullable=True)  # caps credit to elapsed time

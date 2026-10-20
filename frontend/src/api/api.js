@@ -30,6 +30,14 @@ const baseQuery = async (args, api, extra) => {
   return result
 }
 
+const browserTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+  } catch {
+    return undefined
+  }
+}
+
 const serverDown = (err) =>
   err?.status === 'FETCH_ERROR' || err?.status === 'PARSING_ERROR' || err?.status >= 500
 
@@ -41,7 +49,7 @@ export const errorMessage = (err, fallback = 'Something went wrong. Please try a
 export const api = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Profile', 'Calls', 'Me', 'Agents'],
+  tagTypes: ['Profile', 'Calls', 'Me', 'Agents', 'Usage', 'ScreenTime'],
   endpoints: (b) => ({
     // --- auth / user ---
     authConfig: b.query({ query: () => '/auth/config' }),
@@ -88,6 +96,28 @@ export const api = createApi({
       query: (uid) => ({ url: `/users/${uid}/manager/calls`, method: 'POST' }),
       invalidatesTags: ['Calls'],
     }),
+    // --- stats / screen time ---
+    getUsage: b.query({
+      query: ({ uid, metric, range, agentId }) => ({
+        url: `/users/${uid}/stats/usage`,
+        params: { metric, range, tz: browserTimeZone(), ...(agentId ? { agent_id: agentId } : {}) },
+      }),
+      providesTags: ['Usage'],
+    }),
+    getScreenTime: b.query({
+      query: ({ uid, weekStart }) => ({
+        url: `/users/${uid}/screen-time`,
+        params: { tz: browserTimeZone(), ...(weekStart ? { week_start: weekStart } : {}) },
+      }),
+      providesTags: ['ScreenTime'],
+    }),
+    sendHeartbeat: b.mutation({
+      query: ({ uid, seconds }) => ({
+        url: `/users/${uid}/screen-time/heartbeat`,
+        method: 'POST',
+        body: { seconds, tz: browserTimeZone() },
+      }),
+    }),
     // --- existing voice-agent endpoints ---
     getActiveProfile: b.query({
       query: () => '/agent-profiles/active',
@@ -129,6 +159,8 @@ export const {
   useCreateAgentMutation,
   usePayAgentMutation,
   useUpdateAgentMutation,
+  useGetUsageQuery,
+  useGetScreenTimeQuery,
   useListManagerCallsQuery,
   useCreateManagerCallMutation,
   useGetActiveProfileQuery,

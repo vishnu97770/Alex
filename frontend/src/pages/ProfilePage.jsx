@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { api, errorMessage, useLogoutMutation, useUploadAvatarMutation } from '../api/api'
 import { useAppDispatch } from '../app/hooks'
 import ProfileIcon from '../components/Auth/ProfileIcon'
+import ScreenTime from '../components/Profile/ScreenTime'
 
 const MAX_BYTES = 2 * 1024 * 1024
 const TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -74,6 +75,7 @@ export default function ProfilePage() {
                         Log out
                     </button>
                 </div>
+                <ScreenTime uid={me.uid} />
             </div>
         </div>
     )

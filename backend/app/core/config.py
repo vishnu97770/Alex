@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     auth_jwt_secret: str = Field(min_length=16)
     access_token_ttl_seconds: int = 60 * 60 * 24 * 7
     rate_limit_auth: str = "10/minute"
+    rate_limit_heartbeat: str = "20/minute"
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = ""  # default: {APP_ORIGIN}/api/v1/auth/google/callback

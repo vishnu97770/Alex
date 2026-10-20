@@ -1,10 +1,15 @@
+import { useCallback, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useListAgentsQuery } from '../api/api'
+import AgentInfo from '../components/Agents/AgentInfo'
 
 export default function MyAgents() {
     const { me } = useOutletContext()
     const navigate = useNavigate()
     const { data: agents, isLoading, isError } = useListAgentsQuery(me.uid)
+    const [openAid, setOpenAid] = useState(null)
+    const close = useCallback(() => setOpenAid(null), [])
+    const openIndex = agents?.findIndex((a) => a.aid === openAid) ?? -1
     return (
         <div className="page-column">
             <div className="page-top">
@@ -23,18 +28,27 @@ export default function MyAgents() {
                     )}
                     {agents?.length === 0 && <p className="muted">You have no agents yet.</p>}
                     {agents?.map((a) => (
-                        <div className="agent-card" key={a.aid} data-testid="agent-card">
+                        <div
+                            className="agent-card clickable"
+                            key={a.aid}
+                            data-testid="agent-card"
+                            onClick={() => setOpenAid(a.aid)}
+                        >
                             <div className="agent-card-top">
                                 <span
                                     className={`status-dot ${a.status}`}
                                     role="img"
                                     aria-label={a.status === 'busy' ? 'Busy' : 'Free'}
                                     title={a.status === 'busy' ? 'Busy' : 'Free'}
+                                    onClick={(e) => e.stopPropagation()}
                                 />
                                 <button
                                     className="icon-button"
                                     aria-label={`Edit ${a.name}`}
-                                    onClick={() => navigate(`/agents/${me.uid}/update/${a.aid}`)}
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        navigate(`/agents/${me.uid}/update/${a.aid}`)
+                                    }}
                                 >
                                     <svg
                                         viewBox="0 0 24 24"
@@ -49,11 +63,17 @@ export default function MyAgents() {
                                     </svg>
                                 </button>
                             </div>
-                            <div className="agent-card-name">{a.name}</div>
+                            {/* the click is handled by the card; the button makes the card reachable by keyboard */}
+                            <button type="button" className="agent-card-name" aria-label={`Open ${a.name}`}>
+                                {a.name}
+                            </button>
                         </div>
                     ))}
                 </div>
             </div>
+            {openIndex >= 0 && (
+                <AgentInfo uid={me.uid} agent={agents[openIndex]} colorIndex={openIndex} onClose={close} />
+            )}
         </div>
     )
 }

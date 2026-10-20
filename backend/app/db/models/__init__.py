@@ -1,4 +1,4 @@
-from app.db.models.accounts import Agent, AgentPayment, CallLink, Manager, User
+from app.db.models.accounts import Agent, AgentPayment, CallLink, Manager, ScreenTimeDaily, User
 from app.db.models.core import (
     AgentProfile,
     AgentProfileVersion,
@@ -20,6 +20,7 @@ __all__ = [
     "CallSummary",
     "CallTurn",
     "Manager",
+    "ScreenTimeDaily",
     "User",
     "Workspace",
 ]
