@@ -11,7 +11,7 @@ class LatencyTuning:
 
 
 LATENCY_PROFILES: dict[str, LatencyTuning] = {
-    "aggressive": LatencyTuning(0.2, 2.0, True),
+    "aggressive": LatencyTuning(0.2, 1.2, True),
     "balanced": LatencyTuning(0.4, 3.0, True),
     "conservative": LatencyTuning(0.7, 4.5, False),
 }

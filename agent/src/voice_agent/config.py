@@ -45,7 +45,10 @@ class AgentSettings(BaseSettings):
     stt_provider: Literal["deepgram"] = "deepgram"
     tts_provider: Literal["deepgram"] = "deepgram"
     stt_model: str = "nova-3"
+    stt_language: str = "multi"  # detects the caller's language by itself
+    stt_language_hints: str = "en,hi"  # the languages it expects (only used with "multi")
     tts_model: str = "aura-2-draco-en"
+    hindi_tts_model: str = "cartesia/sonic-3"  # Hindi replies, through LiveKit Inference (uses the LiveKit key)
 
     latency_profile: Literal["aggressive", "balanced", "conservative"] = "balanced"
     turn_detection: Literal["semantic", "vad", "stt"] = "semantic"

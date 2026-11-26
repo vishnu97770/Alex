@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -117,12 +117,22 @@ describe('call form validation', () => {
         expect(normalizeAmount('12,000')).toBe('12000.00')
         expect(normalizeAmount('₹ 5200.5')).toBe('5200.50')
         for (const bad of ['0', '-5', '10.123', 'abc', '2000000000']) expect(normalizeAmount(bad)).toBeNull()
-        expect(Object.keys(checkCallForm({ phone: '', amount: '', context: ' ' }))).toEqual([
-            'phone',
-            'amount',
-            'context',
-        ])
-        expect(checkCallForm({ phone: '+919876543210', amount: '1', context: 'ok' })).toEqual({})
+        expect(
+            Object.keys(checkCallForm({ name: ' ', phone: '', amount: '', deadline: '', context: ' ' })),
+        ).toEqual(['name', 'phone', 'amount', 'deadline', 'context'])
+        expect(
+            checkCallForm({
+                name: 'Asha Rao',
+                phone: '+919876543210',
+                amount: '1',
+                deadline: '2026-11-30',
+                context: 'ok',
+            }),
+        ).toEqual({})
+        // the server refuses a one-letter name, so the form says so first
+        expect(checkCallForm({ name: 'A', phone: '', amount: '', deadline: '', context: '' }).name).toMatch(
+            /full name/,
+        )
     })
 })
 
@@ -155,11 +165,13 @@ describe('your agent: Call Agent button', () => {
 })
 
 describe('individual call', () => {
-    it('opens a pop-up with phone, pending amount and call context; Cancel closes it and calls no one', async () => {
+    it('opens a pop-up with name, phone, pending amount, deadline and call context; Cancel closes it and calls no one', async () => {
         const seen = backend()
         renderAt('/agent/u1')
         const dialog = await openIndividual()
-        expect(within(dialog).getByLabelText('Phone number')).toHaveFocus()
+        expect(within(dialog).getByLabelText('Client name')).toHaveFocus()
+        expect(within(dialog).getByLabelText('Phone number')).toBeInTheDocument()
+        expect(within(dialog).getByLabelText('Payment deadline')).toHaveAttribute('type', 'date')
         expect(within(dialog).getByLabelText('Pending amount')).toBeInTheDocument()
         expect(within(dialog).getByLabelText('Call context').tagName).toBe('TEXTAREA')
         expect(within(dialog).getByText('The agent will speak in its male voice.')).toBeInTheDocument()
@@ -174,7 +186,9 @@ describe('individual call', () => {
         renderAt('/agent/u1')
         const dialog = await openIndividual()
         await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm Call' }))
+        expect(within(dialog).getByText('Enter the client’s name.')).toBeInTheDocument()
         expect(within(dialog).getByText(/Enter the client’s phone number/)).toBeInTheDocument()
+        expect(within(dialog).getByText('Choose the payment deadline.')).toBeInTheDocument()
         expect(within(dialog).getByText('Enter the pending amount.')).toBeInTheDocument()
         expect(within(dialog).getByText(/Add some context/)).toBeInTheDocument()
         await userEvent.type(within(dialog).getByLabelText('Phone number'), '12345')
@@ -200,6 +214,10 @@ describe('individual call', () => {
         })
         const { router } = renderAt('/agent/u1')
         const dialog = await openIndividual()
+        await userEvent.type(within(dialog).getByLabelText('Client name'), 'Asha Rao')
+        fireEvent.change(within(dialog).getByLabelText('Payment deadline'), {
+            target: { value: '2026-11-30' },
+        })
         await userEvent.type(within(dialog).getByLabelText('Phone number'), '+91 98123 45678')
         await userEvent.type(within(dialog).getByLabelText('Pending amount'), '12,000')
         expect(within(dialog).getByText(/12,000\.00/)).toBeInTheDocument() // shown as currency
@@ -214,9 +232,11 @@ describe('individual call', () => {
         await waitFor(() => expect(router.state.location.pathname).toBe('/call/u1'))
         expect(posts(seen)).toHaveLength(1)
         expect(await posts(seen)[0].req.json()).toEqual({
+            borrower_name: 'Asha Rao',
             phone: '+919812345678',
             amount: '12000.00',
             currency: 'INR',
+            due_date: '2026-11-30',
             context: 'Asha Rao\nMissed the October EMI',
             mode: 'web', // phone calls are not set up in this test
         })
@@ -267,6 +287,10 @@ describe('individual call', () => {
         })
         renderAt('/agent/u1')
         const dialog = await openIndividual()
+        await userEvent.type(within(dialog).getByLabelText('Client name'), 'Asha Rao')
+        fireEvent.change(within(dialog).getByLabelText('Payment deadline'), {
+            target: { value: '2026-11-30' },
+        })
         await userEvent.type(within(dialog).getByLabelText('Phone number'), '+919812345678')
         await userEvent.type(within(dialog).getByLabelText('Pending amount'), '500')
         await userEvent.type(within(dialog).getByLabelText('Call context'), 'Context')
@@ -416,6 +440,10 @@ describe('phone calls (once the Twilio trunk is set up)', () => {
         return screen.getByRole('dialog')
     }
     const fill = async (dialog) => {
+        await userEvent.type(within(dialog).getByLabelText('Client name'), 'Asha Rao')
+        fireEvent.change(within(dialog).getByLabelText('Payment deadline'), {
+            target: { value: '2026-11-30' },
+        })
         await userEvent.type(within(dialog).getByLabelText('Phone number'), '+91 98123 45678')
         await userEvent.type(within(dialog).getByLabelText('Pending amount'), '12000')
         await userEvent.type(within(dialog).getByLabelText('Call context'), 'Asha Rao')

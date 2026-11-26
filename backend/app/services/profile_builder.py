@@ -16,6 +16,7 @@ def build_generic_profile(v: AgentProfileVersion) -> dict[str, Any]:
         "context_prompt": v.context_prompt,
         "voice_behavior": {
             "voice_id": f.get("voice_id", ""),  # empty: the worker's default voice
+            "hindi_voice_id": f.get("hindi_voice_id", ""),  # empty: Hindi replies use the voice above
             "greeting": flow.get("opening", ""),
             "latency_profile": "aggressive",
         },

@@ -74,7 +74,7 @@ async def test_valid_rows_are_called_one_at_a_time_and_results_recorded(
     ctx = (await client.get(f"/internal/calls/{first}/context", headers=INTERNAL)).json()
     assert ctx["dial"]["to"] == "+919812345678"
     prompt = ctx["profile"]["context_prompt"]
-    assert "Asha Rao" in prompt and "Sunrise Bank" in prompt and "2026-11-30" in prompt and "LN-1" in prompt
+    assert "Asha Rao" in prompt and "Sunrise Bank" in prompt and "30 November 2026" in prompt and "LN-1" in prompt
 
     await _event(client, first, "answered")
     await _event(client, first, "session_closed", reason="participant_disconnected")

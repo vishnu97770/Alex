@@ -16,6 +16,11 @@ ROLE = "Loan-Recovery Agent"
 BUSY_WINDOW = timedelta(minutes=30)  # an unended call older than this is treated as a lost worker
 # The voice the user picks for their agent -> the Deepgram Aura-2 voice every one of its calls speaks in.
 VOICES = {"male": "aura-2-draco-en", "female": "aura-2-pandora-en"}  # both British English
+# Aura-2 has no Hindi voice, so Hindi replies use a Cartesia voice (through LiveKit Inference) of the same gender.
+HINDI_VOICES = {
+    "male": "791d5162-d5eb-40f0-8189-f19db44611d8",  # Ayush
+    "female": "95d51f79-c397-46f9-b49a-23763d3eaa2d",  # Hinglish-speaking female voice
+}
 
 
 def agent_prompt(name: str) -> str:
@@ -29,6 +34,7 @@ def agent_fields(name: str, voice: str) -> dict[str, object]:
     return {
         "agent_name": name,
         "voice_id": VOICES[voice],
+        "hindi_voice_id": HINDI_VOICES[voice],
         "role_summary": ROLE,
         "conversation_flow": {"opening": opening_line(name, None)},
         "escalation_rules": "Offer a callback from the lender's team for anything you cannot answer.",

@@ -1,24 +1,29 @@
 """LiveKit agent worker: entrypoint(ctx) runs one call."""
 
 import asyncio
+import importlib
 import json
 import logging
 import os
 import time
+from dataclasses import dataclass
+from typing import Any
 
+import httpx
 from dotenv import find_dotenv, load_dotenv
 from livekit.agents import AgentSession, JobContext, JobProcess, WorkerOptions, cli
 from livekit.agents.voice import room_io
 from livekit.agents.worker import ServerEnvOption
 
 from voice_agent.backend_client import BackendClient
-from voice_agent.config import get_settings
+from voice_agent.config import AgentSettings, get_settings
 from voice_agent.lifecycle.shutdown import finalize_call
 from voice_agent.lifecycle.summarizer import GeminiSummarizer
 from voice_agent.lifecycle.transcript_recorder import TranscriptRecorder
 from voice_agent.profile.prompt_composer import RuntimeContext
 from voice_agent.profile.schema import AgentProfileSpec
 from voice_agent.providers.noise import noise_selector
+from voice_agent.providers.tts import build_hindi_tts
 from voice_agent.providers.vad import load_vad
 from voice_agent.session_factory import build_agent, build_session, speak
 from voice_agent.telephony import dial_borrower
@@ -38,8 +43,42 @@ def idle_processes() -> int | ServerEnvOption[int]:
     return int(raw) if raw else ServerEnvOption(dev_default=0, prod_default=1)
 
 
+def preload_network() -> None:
+    """Loads what the first backend request needs. Left to the first call, these imports and the TLS setup froze the
+    agent's event loop for about 0.7s while the caller waited."""
+    for module in ("httpcore._sync.connection", "anyio._backends._asyncio", "anyio._core._sockets"):
+        importlib.import_module(module)
+    httpx.AsyncClient()
+
+
 def prewarm(proc: JobProcess) -> None:
     proc.userdata["vad"] = load_vad()
+    preload_network()
+
+
+@dataclass
+class OpenCall:
+    context: dict[str, Any]
+    profile: AgentProfileSpec
+    state: CallState
+    session: AgentSession
+
+
+async def open_call(ctx: Any, backend: Any, call_id: str, settings: AgentSettings, vad: Any) -> OpenCall:
+    """Joins the room and prepares the call at the same time. The voice starts connecting as soon as it is known: a new
+    connection to it takes about a second, which the caller otherwise hears as silence before the greeting."""
+
+    async def prepare() -> OpenCall:
+        context = await backend.get_context(call_id)  # profile snapshot + authorized runtime facts
+        profile = AgentProfileSpec.model_validate(context["profile"])
+        state = CallState(call_id=call_id, correlation_id=context["correlation_id"], direction=context["direction"])
+        session: AgentSession = build_session(profile, settings, vad, userdata=state)
+        if session.tts is not None:
+            session.tts.prewarm()
+        return OpenCall(context, profile, state, session)
+
+    _, call = await asyncio.gather(ctx.connect(), prepare())
+    return call
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -62,20 +101,18 @@ async def entrypoint(ctx: JobContext) -> None:
         correlation_id=meta.get("correlation_id", ""),
     )
     step("before_connect")
-    await ctx.connect()
-    step("connected")
-
-    context = await backend.get_context(call_id)  # profile snapshot + authorized runtime facts
-    step("context_fetched")
-    profile = AgentProfileSpec.model_validate(context["profile"])
+    call = await open_call(ctx, backend, call_id, settings, ctx.proc.userdata["vad"])
+    step("call_opened")
+    context, profile, state, session = call.context, call.profile, call.state, call.session
     rt = context["runtime"]
-    state = CallState(call_id=call_id, correlation_id=context["correlation_id"], direction=context["direction"])
     runtime = RuntimeContext(direction=state.direction, now_iso=rt["now_utc"], timezone=rt["timezone"], call_id=call_id)
 
     tool_ctx = ToolContext(state=state, backend=backend)
-    session: AgentSession = build_session(profile, settings, ctx.proc.userdata["vad"], userdata=state)
     tool_ctx.session = session
-    agent = build_agent(profile, runtime, build_tools(profile.allowed_tools, tool_ctx))
+    hindi_tts = (
+        build_hindi_tts(settings, profile.voice_behavior.hindi_voice_id) if session.tts is not None else None
+    )  # a realtime session speaks for itself
+    agent = build_agent(profile, runtime, build_tools(profile.allowed_tools, tool_ctx), hindi_tts=hindi_tts)
 
     step("session_built")
     recorder = TranscriptRecorder(backend, call_id)
@@ -212,20 +249,28 @@ async def _cancel(task: "asyncio.Task[None]") -> None:
     task.cancel()
 
 
+# Consecutive failed attempts to reach LiveKit before the worker gives up. Once backed off they are 10s apart,
+# so this is about a day. The framework's 16 (about 2.5 minutes) let a short internet outage shut the agent down.
+MAX_RECONNECT_ATTEMPTS = 8640
+
+
+def worker_options() -> WorkerOptions:
+    return WorkerOptions(
+        entrypoint_fnc=entrypoint,
+        prewarm_fnc=prewarm,
+        agent_name=os.environ.get("AGENT_NAME", "voice-agent"),
+        shutdown_process_timeout=60.0,  # summary generation must fit (default 10s is too short)
+        num_idle_processes=idle_processes(),
+        max_retry=MAX_RECONNECT_ATTEMPTS,
+    )
+
+
 def main() -> None:
     # The framework reads LIVEKIT_* from os.environ; export .env there (real env vars still win).
     load_dotenv(find_dotenv(usecwd=True), override=False)
     # LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET are read from the environment by the framework,
     # so `download-files` works at image build time without secrets.
-    cli.run_app(
-        WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            prewarm_fnc=prewarm,
-            agent_name=os.environ.get("AGENT_NAME", "voice-agent"),
-            shutdown_process_timeout=60.0,  # summary generation must fit (default 10s is too short)
-            num_idle_processes=idle_processes(),
-        )
-    )
+    cli.run_app(worker_options())
 
 
 if __name__ == "__main__":

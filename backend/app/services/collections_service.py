@@ -44,7 +44,7 @@ async def call_borrower(
         user.workspace_id,
         source="loan-recovery-call",
         fields=profile_fields(agent, borrower),
-        prompt=build_recovery_prompt(agent.name, borrower),
+        prompt=build_recovery_prompt(agent.name, borrower, voice=agent.voice),
         model="loan-recovery",
     )
     link = CallLink(call_id=uuid.uuid4(), uid=user.uid, agent_aid=agent.aid)

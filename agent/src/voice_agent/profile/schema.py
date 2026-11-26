@@ -27,6 +27,7 @@ class InterruptionSettings(_Model):
 
 class VoiceBehavior(_Model):
     voice_id: str = ""
+    hindi_voice_id: str = ""  # voice for replies in Hindi; empty: voice_id is used for everything
     speaking_rate: float = Field(1.0, ge=0.5, le=1.5)
     greeting: str = ""
     fallback_lines: dict[str, str] = Field(

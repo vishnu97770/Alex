@@ -38,8 +38,10 @@ export function normalizeAmount(raw) {
 }
 
 /** Field errors for the Individual Call form (empty object when it is valid). */
-export function checkCallForm({ phone, amount, context }) {
+export function checkCallForm({ name, phone, amount, deadline, context }) {
     const errors = {}
+    if (!name.trim()) errors.name = 'Enter the client’s name.'
+    else if (name.trim().length < 2) errors.name = 'Enter the client’s full name.'
     if (!phone.trim()) errors.phone = 'Enter the client’s phone number.'
     else if (!normalizePhone(phone))
         errors.phone =
@@ -47,6 +49,7 @@ export function checkCallForm({ phone, amount, context }) {
     if (!amount.trim()) errors.amount = 'Enter the pending amount.'
     else if (!normalizeAmount(amount))
         errors.amount = 'Enter an amount greater than zero, with at most 2 decimal places.'
+    if (!deadline) errors.deadline = 'Choose the payment deadline.'
     if (!context.trim()) errors.context = 'Add some context about the client and their loan.'
     else if (context.length > CONTEXT_MAX)
         errors.context = `Keep the context under ${CONTEXT_MAX} characters.`
@@ -55,9 +58,8 @@ export function checkCallForm({ phone, amount, context }) {
 
 const CONTEXT_HINT = [
     'For example:',
-    '• Client name and lender',
+    '• Lender and loan reference',
     '• Original loan amount and what is still pending',
-    '• Repayment deadline',
     '• Past repayments and missed payments',
     '• Earlier calls or messages, and anything else the agent should know',
 ].join('\n')
@@ -106,13 +108,20 @@ function IndividualCallForm({ onStarted, onBusyChange, voice }) {
     const { start } = useCall()
     const phoneCalls = useAuthConfigQuery().data?.phone_calls === true
     const [mode, setMode] = useState('phone')
-    const [form, setForm] = useState({ phone: '', amount: '', context: '' })
+    const [form, setForm] = useState({ name: '', phone: '', amount: '', deadline: '', context: '' })
     const [touched, setTouched] = useState({})
     const [submitted, setSubmitted] = useState(false)
     const [busy, setBusy] = useState(false)
     const [serverError, setServerError] = useState(null)
     const inFlight = useRef(false) // set synchronously: a double click cannot start two calls
-    const ids = { phone: useId(), amount: useId(), context: useId(), mode: useId() }
+    const ids = {
+        name: useId(),
+        phone: useId(),
+        amount: useId(),
+        deadline: useId(),
+        context: useId(),
+        mode: useId(),
+    }
     const errors = checkCallForm(form)
     const shown = (f) => (submitted || touched[f] ? errors[f] : undefined)
     const amount = normalizeAmount(form.amount)
@@ -130,9 +139,11 @@ function IndividualCallForm({ onStarted, onBusyChange, voice }) {
         onBusyChange(true)
         try {
             const id = await start({
+                borrower_name: form.name.trim(),
                 phone: normalizePhone(form.phone),
                 amount,
                 currency: CURRENCY,
+                due_date: form.deadline,
                 context: form.context.trim(),
                 mode: phoneCalls ? mode : 'web',
             })
@@ -161,6 +172,27 @@ function IndividualCallForm({ onStarted, onBusyChange, voice }) {
                     {serverError}
                 </div>
             )}
+            <Field
+                id={ids.name}
+                label="Client name"
+                error={shown('name')}
+                hint="The agent opens with “Am I speaking with …?”"
+            >
+                <input
+                    id={ids.name}
+                    type="text"
+                    autoComplete="off"
+                    placeholder="Asha Rao"
+                    value={form.name}
+                    onChange={set('name')}
+                    onBlur={blur('name')}
+                    maxLength={80}
+                    required
+                    aria-invalid={!!shown('name')}
+                    aria-describedby={describedBy('name', true)}
+                    disabled={busy}
+                />
+            </Field>
             <Field id={ids.phone} label="Phone number" error={shown('phone')} hint="With the country code">
                 <input
                     id={ids.phone}
@@ -202,6 +234,24 @@ function IndividualCallForm({ onStarted, onBusyChange, voice }) {
                         disabled={busy}
                     />
                 </div>
+            </Field>
+            <Field
+                id={ids.deadline}
+                label="Payment deadline"
+                error={shown('deadline')}
+                hint="The agent does not agree to pay after this date"
+            >
+                <input
+                    id={ids.deadline}
+                    type="date"
+                    value={form.deadline}
+                    onChange={set('deadline')}
+                    onBlur={blur('deadline')}
+                    required
+                    aria-invalid={!!shown('deadline')}
+                    aria-describedby={describedBy('deadline', true)}
+                    disabled={busy}
+                />
             </Field>
             <Field
                 id={ids.context}

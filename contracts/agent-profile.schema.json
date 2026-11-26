@@ -139,6 +139,11 @@
           "title": "Greeting",
           "type": "string"
         },
+        "hindi_voice_id": {
+          "default": "",
+          "title": "Hindi Voice Id",
+          "type": "string"
+        },
         "interruption": {
           "$ref": "#/$defs/InterruptionSettings"
         },

@@ -2,10 +2,11 @@
 
 from typing import Any
 
-from livekit.agents import Agent, AgentSession
+from livekit.agents import AgentSession, tts
 from livekit.agents.voice.agent_session import SessionConnectOptions
 from livekit.agents.voice.turn import TurnHandlingOptions
 
+from voice_agent.bilingual import BilingualAgent
 from voice_agent.config import AgentSettings
 from voice_agent.profile.prompt_composer import RuntimeContext, compose_instructions
 from voice_agent.profile.schema import AgentProfileSpec
@@ -32,7 +33,8 @@ def build_turn_handling(profile: AgentProfileSpec, settings: AgentSettings, turn
     return TurnHandlingOptions(
         turn_detection=turn_detection,
         endpointing={
-            "mode": "dynamic",
+            # "dynamic" learns from pauses: one long silence raised the wait to 1.6s for the rest of the call.
+            "mode": "fixed",
             "min_delay": tuning.endpoint_min_delay,
             "max_delay": tuning.endpoint_max_delay,
         },
@@ -62,8 +64,10 @@ def build_session(
     )
 
 
-def build_agent(profile: AgentProfileSpec, runtime: RuntimeContext, tools: list[Any]) -> Agent:
-    return Agent(instructions=compose_instructions(profile, runtime), tools=tools)
+def build_agent(
+    profile: AgentProfileSpec, runtime: RuntimeContext, tools: list[Any], *, hindi_tts: tts.TTS | None = None
+) -> BilingualAgent:
+    return BilingualAgent(instructions=compose_instructions(profile, runtime), tools=tools, hindi_tts=hindi_tts)
 
 
 def speak(session: AgentSession, text: str, *, interruptible: bool = True) -> None:
